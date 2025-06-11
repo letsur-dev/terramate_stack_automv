@@ -2,15 +2,41 @@ import { intro, outro, spinner, multiselect } from '@clack/prompts';
 import { findTFfolders, workspaceMultiSelect } from './utils/workspace.js';
 import { getPlanJsonContent, TerraformMoveDetector } from './utils/plan.js';
 import { applyStateMovements } from './utils/state.js';
+import path from 'path';
+import { statSync } from 'fs';
 
-// 메인 함수
+// ----- 경로 분석 ----- //
+const args = process.argv.slice(2);
+if (args.length != 1) {
+    console.log("작업 경로가 전달되지 않았습니다.");
+    process.exit(1);
+}
+let userDir = '';
+if (path.isAbsolute(args[0])) {
+    userDir = args[0];
+} else {
+    userDir = path.resolve(process.cwd(), args[0]);
+}
+try {
+    const stats = statSync(userDir);
+    if (!stats.isDirectory()) {
+        console.log("작업 경로는 반드시 폴더야 합니다.");
+        process.exit(1);
+    }
+} catch (err) {
+    console.log("유효하지 않은 경로");
+    process.exit(1);
+}
+
+// ----- 메인 함수 ----- //
 const s = spinner();
 
 intro(`TFstate Auto Move`);
+// 사용자에게 작업 경로 입력받기
 
 // 우선 작업 폴더 내 TF 작업 폴더들 조회하기
 s.start('Detecting the terraform directories');
-let tfdirs = await findTFfolders("/Users/korjwl1/Documents/terraform-infra");
+let tfdirs = await findTFfolders(userDir);
 if (tfdirs.length == 0) {
     outro(`No Terraform workspace found!`);
 }
@@ -39,10 +65,10 @@ if (options.length > 0) {
         required: false
     });
 
-    // 고른 move를 적용하기
-    await applyStateMovements(tfdirs, workspace, moves, moves_chosen);
+    if (moves_chosen.length > 0) {
+        // 고른 move를 적용하기
+        await applyStateMovements(tfdirs, workspace, moves, moves_chosen);
+    }
 }
-
-
 
 outro(`TFstate Auto Move done!`);

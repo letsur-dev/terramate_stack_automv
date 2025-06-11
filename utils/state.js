@@ -3,7 +3,7 @@ import path from 'path';
 import os from 'os';
 import { spawnPromise } from './spawn.js';
 import { promises as fs } from 'fs';
-import fsExtra from 'fs-extra';
+import fsExtra, { move } from 'fs-extra';
 
 function getFormattedDateTimeYYYYMMDD_HHmmSS() {
     const now = new Date(); // 현재 날짜와 시간을 가져옵니다.
@@ -62,7 +62,7 @@ export async function applyStateMovements(tfdirs, workspace, moves, userChoices)
     s.start("Apply Moves");
     for (let i = 0; i < moves.length; i++) {
         if (userChoices.includes(i)) {
-            await applyStateMovement(moves[i]);
+            await applyStateMovement(moves[i], workingDir);
         } else {
             continue;
         }
@@ -72,10 +72,42 @@ export async function applyStateMovements(tfdirs, workspace, moves, userChoices)
 
     // 작업 완료 후 S3에 다시 업로드
     s.start("Push TFState");
+    for (const tfdir of tfdirs) {
+        const statePath = `${path.join(process.cwd(), workingDir, path.basename(tfdir))}.tfstate`;
+        let result = await spawnPromise('terraform',
+            ['state', 'push', statePath], 
+            {
+                cwd: tfdir,
+                env: {
+                    ...process.env,
+                    TF_WORKSPACE: workspace,
+                    KUBE_CONFIG_PATH: path.join(os.homedir(), '.kube', 'config')
+                }
+            }
+        );
+
+        if (result.code != 0) {
+            log.warn(result.stderr);
+        } else {
+        }
+    }
 
     s.stop("Push TFState");
 }
 
-async function applyStateMovement(movement) {
+async function applyStateMovement(movement, workingDir) {
+    // from.path랑 to.path로 부터 사용할 tfstate를 고른다
+    let source = path.join(process.cwd(), workingDir, path.basename(movement.from.path));
+    let dest = path.join(process.cwd(), workingDir, path.basename(movement.to.path));
 
+    // from.address와 to.address를 통해 terraform state mv 실행
+    let result = await spawnPromise('terraform', 
+        ['state', 'mv', `-state=${source}.tfstate`, `-state-out=${dest}.tfstate`, movement.from.address, movement.to.address],
+        {}
+    );
+    
+    if (result.code != 0) {
+        log.warn(result.stderr);
+    } else {
+    }
 }
