@@ -32,7 +32,6 @@ try {
 const s = spinner();
 
 intro(`TFstate Auto Move`);
-// 사용자에게 작업 경로 입력받기
 
 // 우선 작업 폴더 내 TF 작업 폴더들 조회하기
 s.start('Detecting the terraform directories');
@@ -67,7 +66,7 @@ if (options.length > 0) {
 
     if (moves_chosen.length > 0) {
         // 고른 move를 적용하기
-        await applyStateMovements(tfdirs, workspace, moves, moves_chosen);
+        await applyStateMovements(tfdirs, workspace, moves, moves_chosen);   
     }
 }
 
